@@ -1,13 +1,13 @@
 {
   "name": "sabrina",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "main": "bot.js",
   "scripts": { "start": "node bot.js" },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.18",
+    "@whiskeysockets/baileys": "^6.7.20",
     "express": "^4.18.2",
     "pino": "^8.17.0",
     "qrcode": "^1.5.3",
-    "sharp": "^0.33.0"
+    "sharp": "^0.33.4"
   }
 }
