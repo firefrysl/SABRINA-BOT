@@ -2,9 +2,16 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = requi
 const { exec } = require('child_process');
 const fs = require('fs');
 const P = require('pino');
+const express = require('express');
 
-// PON AQUI EL ID DE TU GRUPO - si no sabes cual es, escribeme y te digo como sacarlo
-const ID_GRUPO = '1203630xxxxx@g.us';
+// ===== SERVIDOR PARA RENDER (ARREGLA EL ERROR DE PUERTO) =====
+const app = express();
+const PORT = process.env.PORT || 3000;
+app.get('/', (req, res) => res.send('Sabrina PRO activa con emociones 💋'));
+app.listen(PORT, () => console.log(`Servidor Render en puerto ${PORT}`));
+// ============================================================
+
+const ID_GRUPO = '1203630xxxxx@g.us'; // CAMBIA ESTO POR TU ID
 
 const emocionesTTS = {
     coqueta: '--rate=+5% --pitch=+4Hz',
@@ -45,10 +52,8 @@ async function startBot() {
         let texto = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
         let textoLower = texto.toLowerCase().trim();
 
-        // SOLO RESPONDE EN GRUPOS
         if (!from.endsWith('@g.us')) return;
 
-        // COMANDO #VOZ
         if (textoLower.startsWith('#voz')) {
             let random = sabrinaRespuestas[Math.floor(Math.random() * sabrinaRespuestas.length)];
             let textoVoz = random.texto;
@@ -57,7 +62,6 @@ async function startBot() {
             console.log(`Sabrina dice: ${textoVoz} [${random.emocion}]`);
 
             const filePath = './sabrina.mp3';
-            // Comando edge-tts con emocion
             const cmd = `npx edge-tts --voice es-MX-DalilaNeural ${emocion} --text "${textoVoz}" --write-media ${filePath}`;
 
             exec(cmd, async (err) => {
@@ -76,11 +80,8 @@ async function startBot() {
                 } catch (e) { console.log(e); }
             });
         }
-
-        // Tus otros comandos #todos etc los puedes poner aqui abajo
     });
 
-    // CIERRE AUTOMATICO 10:30PM - 5AM HORA HONDURAS
     setInterval(async () => {
         try {
             let ahora = new Date().toLocaleString("en-US", { timeZone: "America/Tegucigalpa" });
