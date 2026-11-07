@@ -11,7 +11,7 @@ async function startBot() {
     sock.ev.on('creds.update', saveCreds)
 
     if(!sock.authState.creds.registered) {
-        const number = '50499999999' // <--- PON TU NUMERO AQUI SIN ESPACIOS
+        const number = '50492426533' // <--- PON TU NUMERO AQUI SIN ESPACIOS
         setTimeout(async () => {
             const code = await sock.requestPairingCode(number)
             console.log('TU CODIGO ES: ' + code)
