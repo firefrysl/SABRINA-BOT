@@ -11,11 +11,17 @@ async function startBot() {
     sock.ev.on('creds.update', saveCreds)
 
     if(!sock.authState.creds.registered) {
-        const number = '50492426533' // <--- PON TU NUMERO AQUI SIN ESPACIOS
+        const number = '50492426533'
         setTimeout(async () => {
-            const code = await sock.requestPairingCode(number)
-            console.log('TU CODIGO ES: ' + code)
-        }, 3000)
+            try {
+                const code = await sock.requestPairingCode(number)
+                console.log('====================')
+                console.log('TU CODIGO SABRINA: ' + code)
+                console.log('====================')
+            } catch(e) {
+                console.log('Error:', e.message)
+            }
+        }, 5000)
     }
 
     sock.ev.on('connection.update', async (update) => {
@@ -34,10 +40,10 @@ async function startBot() {
         if(!msg.message) return
         const jid = msg.key.remoteJid
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || ""
-        const t = text.toLowerCase()
+        const t = text.toLowerCase().trim()
 
-        if(t === 'hola' || t === '#hola' || t === '#menu' || t === 'menu') {
-            await sock.sendMessage(jid, { text: 'Hola mi amor! 💖 Soy Sabrina lista!\n\n#precios\n#catalogo\n#pedido\n#horario\n#ubicacion' })
+        if(t === 'hola' || t === '#hola' || t === '#menu' || t === 'menu' || t === 'buenas') {
+            await sock.sendMessage(jid, { text: 'Hola mi amor! 💖 Soy Sabrina\n\n#precios\n#catalogo\n#pedido\n#horario\n#ubicacion' })
         }
     })
 }
