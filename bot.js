@@ -1,61 +1,32 @@
-const fs = require('fs')
-if (fs.existsSync('./auth')) fs.rmSync('./auth', { recursive: true, force: true })
-
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys')
+const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys')
 const P = require('pino')
 const express = require('express')
 const QRCode = require('qrcode')
-
+const fs = require('fs')
 const app = express()
-let qrString = ''
-let conectado = false
+let qr = ''
+let status = 'Iniciando...'
 
-app.get('/', async (req,res) => {
-    if(conectado) return res.send('<h1>Sabrina CONECTADA! Ya prueba #IMG</h1>')
-    if(qrString) {
-        const qr = await QRCode.toDataURL(qrString)
-        return res.send(`<h1>ESCANEA 92426533 YA</h1><img src="${qr}" width="350"><br><p>Dale F5 si expira</p>`)
-    }
-    res.send('Iniciando... espera 15 seg y dale F5')
+app.get('/', async (req,res)=>{
+  if(status==='CONECTADA') return res.send('<h1>SABRINA CONECTADA! Ya puedes usar #IMG</h1>')
+  if(qr){
+    const img = await QRCode.toDataURL(qr)
+    res.send(`<html><body style="text-align:center"><h1>ESCANEA QR 92426533</h1><img src="${img}" style="width:350px"><h2>Expira en 20 seg, dale F5</h2></body></html>`)
+  } else {
+    res.send(`<h1>${status} - Espera 10 seg y dale F5</h1>`)
+  }
 })
 app.listen(3000)
 
-async function start() {
-  console.log('Iniciando bot...')
-  const { state, saveCreds } = await useMultiFileAuthState('auth')
-  const sock = makeWASocket({ auth: state, logger: P({ level: 'silent' }) })
+async function start(){
+  const {version} = await fetchLatestBaileysVersion()
+  const {state, saveCreds} = await useMultiFileAuthState('auth')
+  const sock = makeWASocket({version, auth: state, logger: P({level:'silent'}), browser:['Chrome','Windows','10']})
   sock.ev.on('creds.update', saveCreds)
-  sock.ev.on('connection.update', async (u) => {
-      if(u.qr) { 
-        qrString = u.qr 
-        console.log('¡QR GENERADO! Ve a tu link de Render')
-      }
-      if(u.connection === 'close') {
-        const error = u.lastDisconnect?.error
-        console.log('ERROR COMPLETO:', error)
-        console.log('Codigo:', error?.output?.statusCode)
-        conectado = false
-        setTimeout(start, 3000)
-      }
-      if(u.connection === 'open') {
-        qrString = ''
-        conectado = true
-        console.log('CONECTADA OK #IMG FUNCIONA')
-      }
-  })
-  sock.ev.on('messages.upsert', async (m) => {
-    const msg = m.messages[0]
-    if(!msg.message || msg.key.fromMe) return
-    const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || '').toLowerCase()
-    console.log('Mensaje:', text)
-    if(text.includes('#img')) {
-        const from = msg.key.remoteJid
-        if(fs.existsSync('./IMG.jpg')) {
-            await sock.sendMessage(from, { image: fs.readFileSync('./IMG.jpg'), caption: '💰 PRECIOS COD POINTS 💰' })
-        } else {
-            await sock.sendMessage(from, { text: 'No encuentro IMG.jpg' })
-        }
-    }
+  sock.ev.on('connection.update', async(u)=>{
+    if(u.qr){ qr=u.qr; status='QR LISTO'; console.log('QR LISTO') }
+    if(u.connection==='open'){ qr=''; status='CONECTADA'; console.log('CONECTADA') }
+    if(u.connection==='close'){ status='Reconectando...'; console.log(u.lastDisconnect?.error); setTimeout(start,2000) }
   })
 }
 start()
