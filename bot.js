@@ -21,8 +21,21 @@ if (fs.existsSync('./vips.json')) {
 }
 const guardarVips = () => fs.writeFileSync('./vips.json', JSON.stringify(vips))
 
+// LO COQUETO - 1 SOLA VEZ POR COMANDO
+const coquetas = [
+  "Aquí estoy mi amor 💋",
+  "Dime bebé 😏", 
+  "A tus órdenes mi rey 🫦",
+  "Aquí está tu Sabrina 💋",
+  "Dime corazón 😘",
+  "A tus pies papi 🔥",
+  "Aquí estoy precioso 💋",
+  "Que quieres mi amor? 😏"
+]
+function coqueta(){ return coquetas[Math.floor(Math.random()*coquetas.length)] }
+
 app.get('/', async (req, res) => {
-  if (conectado) return res.send('<h1 style="text-align:center;margin-top:100px;font-family:sans-serif">✅ BOT VIP + ANTI-LINK ACTIVO</h1>')
+  if (conectado) return res.send('<h1 style="text-align:center;margin-top:100px;font-family:sans-serif">✅ BOT VIP + COQUETA ACTIVO 💋</h1>')
   if (qr) {
     const img = await QRCode.toDataURL(qr)
     return res.send(`<center><h2>ESCANEA QR</h2><img src="${img}" style="width:350px;border:10px solid #000"></center>`)
@@ -57,11 +70,11 @@ async function start() {
       else if (fs.existsSync('./img.jpg')) archivo = './img.jpg'
       if (h === HORA_CIERRE.h && m === HORA_CIERRE.m) {
         await sock.groupSettingUpdate(ID_GRUPO, 'announcement')
-        if(archivo) await sock.sendMessage(ID_GRUPO, { image: fs.readFileSync(archivo), caption: '🌙 *GRUPO CERRADO POR DESCANSO* 🌙\n\n⏰ Cierra 10:30PM MX / Abre 5AM MX\n💤' })
+        if(archivo) await sock.sendMessage(ID_GRUPO, { image: fs.readFileSync(archivo), caption: `🌙 *GRUPO CERRADO POR DESCANSO* 🌙\n\n${coqueta()} nos vemos mañana papi 💤` })
       }
       if (h === HORA_ABRE.h && m === HORA_ABRE.m) {
         await sock.groupSettingUpdate(ID_GRUPO, 'not_announcement')
-        await sock.sendMessage(ID_GRUPO, { text: '☀️ *BUENOS DÍAS* ☀️\n\n🔓 Grupo abierto!\n#menu #img #pista' })
+        await sock.sendMessage(ID_GRUPO, { text: `☀️ *BUENOS DÍAS* ☀️\n\n${coqueta()} 🔓 Grupo abierto!\n#menu #img #pista` })
       }
     }catch(e){}
   }, 60000)
@@ -75,7 +88,6 @@ async function start() {
     const esGrupo = from.endsWith('@g.us')
     const sender = esGrupo ? msg.key.participant : from
 
-    // ANTI-LINK DE OTROS GRUPOS WHATSAPP
     if (esGrupo && texto.includes('chat.whatsapp.com')) {
       const metadata = await sock.groupMetadata(from)
       const admins = metadata.participants.filter(p => p.admin).map(p => p.id)
@@ -84,7 +96,7 @@ async function start() {
       if (!esAdmin && !esVip) {
         try {
           await sock.sendMessage(from, { delete: msg.key })
-          await sock.sendMessage(from, { text: `🚫 @${sender.split('@')[0]} link de otro grupo borrado, solo admins y VIP pueden pasar links`, mentions: [sender] })
+          await sock.sendMessage(from, { text: `🚫 @${sender.split('@')[0]} ${coqueta()} ese link no mi amor, solo admins y VIPs pueden`, mentions: [sender] })
         } catch(e){}
         return
       }
@@ -92,7 +104,7 @@ async function start() {
 
     if (texto.includes('#id')) {
       await esperar()
-      await sock.sendMessage(from, { text: `🆔 ID: ${from}` })
+      await sock.sendMessage(from, { text: `${coqueta()} 🆔 ID: ${from}` })
       return
     }
     if (texto.includes('#img')) {
@@ -102,30 +114,32 @@ async function start() {
       else if (fs.existsSync('./IMG.JPG')) archivo = './IMG.JPG'
       else if (fs.existsSync('./img.jpg')) archivo = './img.jpg'
       else if (fs.existsSync('./IMG.png')) archivo = './IMG.png'
-      if (archivo) await sock.sendMessage(from, { image: fs.readFileSync(archivo), caption: '💰 *PRECIOS* 💰' })
+      else if (fs.existsSync('./cod.jpg')) archivo = './cod.jpg'
+      if (archivo) await sock.sendMessage(from, { image: fs.readFileSync(archivo), caption: `${coqueta()} 💰 *PRECIOS* 💋` })
+      else await sock.sendMessage(from, { text: `${coqueta()} súbeme la foto como IMG.jpg amor 💋` })
       return
     }
     if (texto.includes('#menu')) {
       await esperar()
-      await sock.sendMessage(from, { text: '*🤖 MENU COMPLETO - COD 889*\n\n📸 #img - Precios\n📋 #menu - Menu\n🆔 #id - ID grupo\n🔍 #pista - Adivinanza\n\n*SOLO ADMINS:*\n📢 #todos / #all\n🔒 #cerrar / #abrir\n👢 #kick @usuario\n⭐ #vip @usuario - Dar VIP (puede pasar links)\n❌ #novip @usuario - Quitar VIP\n📃 #vips - Ver VIPs\n\n🛡️ Anti-link otros grupos ACTIVO\n⭐ VIPs si pueden pasar links\n⏰ Auto 10:30PM-5AM MX' })
+      await sock.sendMessage(from, { text: `${coqueta()} *🤖 MENU COMPLETO - COD 889* 💋\n\n📸 #img - Precios\n📋 #menu - Menu\n🆔 #id - ID grupo\n🔍 #pista - Adivinanza\n\n*SOLO ADMINS:*\n📢 #todos / #all\n🔒 #cerrar / #abrir\n👢 #kick @usuario\n⭐ #vip @usuario\n❌ #novip @usuario\n📃 #vips\n\n🛡️ Anti-link ACTIVO` })
       return
     }
     if (texto.startsWith('#pista')) {
       await esperar()
-      await sock.sendMessage(from, { text: `*🔍 #PISTA - RECOMPENSA: PASE DE BATALLA PRÓXIMA TEMPORADA 🔍*\n\n📜 CIFRADO:\n\`19-9   12-15   4-5-19-3-9-6-18-1-19-20-5-19   5-19   16-15-18-17-21-5   5-18-5-19   21-14   8-21-18-7-9-4-15   4-5   20-18-9-16-1-19\`\n\nA=1, Z=26` })
+      await sock.sendMessage(from, { text: `${coqueta()} *🔍 #PISTA* 💋\n\n📜 CIFRADO:\n\`19-9   12-15   4-5-19-3-9-6-18-1-19-20-5-19   5-19   16-15-18-17-21-5   18-5-19   21-14   8-21-18-7-9-4-15   4-5   20-18-9-16-1-19\`\n\nA=1, Z=26` })
       return
     }
     if (texto.startsWith('#vip')) {
       if (!esGrupo) return
       const metadata = await sock.groupMetadata(from)
       const admins = metadata.participants.filter(p => p.admin).map(p => p.id)
-      if (!admins.includes(sender)) return sock.sendMessage(from, {text: '❌ Solo admins pueden dar VIP'})
+      if (!admins.includes(sender)) return sock.sendMessage(from, {text: `${coqueta()} solo admins pueden dar VIP papi ❌`})
       const mentioned = msg.message.extendedTextMessage?.contextInfo?.mentionedJid
-      if (!mentioned || mentioned.length==0) return sock.sendMessage(from, {text: 'Usa: #vip @usuario'})
+      if (!mentioned || mentioned.length==0) return sock.sendMessage(from, {text: `${coqueta()} Usa: #vip @usuario 💋`})
       mentioned.forEach(jid => { if(!vips.includes(jid)) vips.push(jid) })
       guardarVips()
       await esperar()
-      await sock.sendMessage(from, { text: `⭐ @${mentioned[0].split('@')[0]} ahora es VIP, ya puede pasar links de otros grupos`, mentions: mentioned })
+      await sock.sendMessage(from, { text: `${coqueta()} ⭐ @${mentioned[0].split('@')[0]} ahora es VIP papi, ya puede pasar links 💋`, mentions: mentioned })
       return
     }
     if (texto.startsWith('#novip')) {
@@ -137,12 +151,12 @@ async function start() {
       if (!mentioned) return
       vips = vips.filter(v => !mentioned.includes(v))
       guardarVips()
-      await sock.sendMessage(from, { text: `❌ VIP quitado a @${mentioned[0].split('@')[0]}`, mentions: mentioned })
+      await sock.sendMessage(from, { text: `${coqueta()} ❌ VIP quitado a @${mentioned[0].split('@')[0]} mi amor`, mentions: mentioned })
       return
     }
     if (texto.startsWith('#vips')) {
-      if (vips.length==0) return sock.sendMessage(from, {text: 'No hay VIPs aún'})
-      let txt = '*⭐ LISTA VIPs:*\n'
+      if (vips.length==0) return sock.sendMessage(from, {text: `${coqueta()} No hay VIPs aún mi amor 💋`})
+      let txt = `${coqueta()} *⭐ LISTA VIPs:* 💋\n`
       vips.forEach(v=> txt+=`@`+v.split('@')[0]+'\n')
       await sock.sendMessage(from, { text: txt, mentions: vips })
       return
@@ -151,24 +165,24 @@ async function start() {
       if (!esGrupo) return
       const metadata = await sock.groupMetadata(from)
       const admins = metadata.participants.filter(p => p.admin).map(p => p.id)
-      if (!admins.includes(sender)) return sock.sendMessage(from, {text: '❌ Solo admins'})
+      if (!admins.includes(sender)) return sock.sendMessage(from, {text: `${coqueta()} solo admins papi ❌`})
       await esperar()
       let mentions = metadata.participants.map(p=>p.id)
-      await sock.sendMessage(from, { text: '📢 ATENCION TODOS 📢\n#img para precios', mentions })
+      await sock.sendMessage(from, { text: `${coqueta()} 📢 ATENCION TODOS 📢 💋\n#img para precios`, mentions })
       return
     }
     if (texto.startsWith('#cerrar') || texto.startsWith('#abrir')) {
       if (!esGrupo) return
       const metadata = await sock.groupMetadata(from)
       const admins = metadata.participants.filter(p => p.admin).map(p => p.id)
-      if (!admins.includes(sender)) return sock.sendMessage(from, {text: '❌ Solo admins'})
+      if (!admins.includes(sender)) return sock.sendMessage(from, {text: `${coqueta()} solo admins papi ❌`})
       await esperar()
       if(texto.startsWith('#cerrar')){
         await sock.groupSettingUpdate(from, 'announcement')
-        await sock.sendMessage(from, {text: '🔒 Grupo cerrado por admin'})
+        await sock.sendMessage(from, {text: `${coqueta()} 🔒 Grupo cerrado por admin mi amor`})
       } else {
         await sock.groupSettingUpdate(from, 'not_announcement')
-        await sock.sendMessage(from, {text: '🔓 Grupo abierto por admin'})
+        await sock.sendMessage(from, {text: `${coqueta()} 🔓 Grupo abierto por admin mi amor 💋`})
       }
       return
     }
@@ -181,13 +195,14 @@ async function start() {
       if(mentioned && mentioned.length>0){
         await esperar()
         await sock.groupParticipantsUpdate(from, mentioned, 'remove')
+        await sock.sendMessage(from, { text: `${coqueta()} fuera papi 🔥` })
       }
       return
     }
     if (texto.startsWith('#')) {
       if (!COMANDOS_VALIDOS.some(c => texto.startsWith(c))) {
         await esperar()
-        await sock.sendMessage(from, { text: '❌ Comando no valido amor, escribe #menu' })
+        await sock.sendMessage(from, { text: `${coqueta()} comando no valido amor, escribe #menu 💋` })
       }
     }
   })
