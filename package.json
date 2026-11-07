@@ -1,5 +1,5 @@
 {
-  "name": "sabrina-qr",
+  "name": "sabrina-bot",
   "main": "bot.js",
   "scripts": { "start": "node bot.js" },
   "dependencies": {
