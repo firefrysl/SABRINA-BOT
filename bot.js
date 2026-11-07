@@ -1,78 +1,69 @@
-// SABRINA PRO MAX - TODOS LOS COMANDOS INCLUIDOS
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
-const { exec } = require('child_process');
-const fs = require('fs');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const P = require('pino');
 const express = require('express');
+const qrcode = require('qrcode-terminal');
 
+// Servidor para Render
 const app = express();
 const PORT = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send('Sabrina PRO MAX activa - todos los comandos incluidos 💋'));
-app.listen(PORT, () => console.log(`Render OK puerto ${PORT}`));
+let lastQR = null;
 
-const ID_GRUPO = '1203630xxxxx@g.us'; // TU ID AQUI
-
-const emocionesTTS = {
-    coqueta: '--rate=+3% --pitch=+5Hz', juguetona: '--rate=+18% --pitch=+10Hz',
-    susurro: '--rate=-8% --pitch=-3Hz', enojada: '--rate=+12% --pitch=+14Hz',
-    timida: '--rate=-5% --pitch=+2Hz', feliz: '--rate=+10% --pitch=+6Hz'
-};
-
-const frasesSabrina = [
-    { t: "Holaaa amorcito, me extrañaste? jeje yo si", e: "coqueta" },
-    { t: "Holi bebé, por fin me hablas, estaba aburrida", e: "timida" },
-    { t: "Mmm me encanta que me hablen así de lindo", e: "susurro" },
-    { t: "Jajaja eres bien travieso, me caes bien", e: "juguetona" },
-    { t: "Uy amor, me vas a enamorar si sigues así", e: "coqueta" },
-    { t: "No me hagas enojar que me pongo celosa", e: "enojada" },
-    { t: "Hola mi rey, te estaba esperando", e: "coqueta" },
-    { t: "Ya llegue yo, la mas bonita del grupo", e: "juguetona" },
-];
+app.get('/', (req, res) => {
+  if (lastQR) {
+    res.send(`<h1>Sabrina PRO - Escanea el QR en los logs de Render</h1><p>QR: ${lastQR}</p><p>Ve a Logs -> Live tail para ver el QR grande</p>`);
+  } else {
+    res.send('Sabrina PRO activa - esperando QR... revisa los logs');
+  }
+});
+app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
 
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
-    const sock = makeWASocket({ auth: state, logger: P({ level: 'silent' }), browser: ["Sabrina", "Chrome", "1.0"] });
-    sock.ev.on('creds.update', saveCreds);
-    sock.ev.on('connection.update', (u) => {
-        if (u.connection === 'close' && u.lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) startBot();
-        if (u.connection === 'open') console.log('SABRINA CON TODOS LOS COMANDOS CONECTADA');
-    });
+  const { state, saveCreds } = await useMultiFileAuthState('auth_sabrina');
+  const { version } = await fetchLatestBaileysVersion();
+  
+  const sock = makeWASocket({
+    version,
+    auth: state,
+    logger: P({ level: 'silent' }),
+    printQRInTerminal: true,
+    browser: ["Sabrina PRO", "Chrome", "1.0"]
+  });
 
-    sock.ev.on('messages.upsert', async ({ messages }) => {
-        const msg = messages[0];
-        if (!msg.message || msg.key.fromMe) return;
-        const from = msg.key.remoteJid;
-        if (!from.endsWith('@g.us')) return;
-        let texto = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
-        let low = texto.toLowerCase().trim();
-        
-        const meta = await sock.groupMetadata(from).catch(()=>null);
-        const parts = meta?.participants || [];
-        const isAdmin = parts.find(p => p.id === msg.key.participant)?.admin;
-        const isBotAdmin = parts.find(p => p.id === sock.user.id)?.admin;
+  sock.ev.on('creds.update', saveCreds);
 
-        // ANTI-LINK
-        if (low.includes('chat.whatsapp.com/')) {
-            if (!isAdmin && isBotAdmin) {
-                await sock.sendMessage(from, { text: `🚫 @${msg.key.participant.split('@')[0]} link no permitido`, mentions: [msg.key.participant] });
-                await sock.groupParticipantsUpdate(from, [msg.key.participant], 'remove').catch(()=>{});
-                return;
-            }
-        }
+  sock.ev.on('connection.update', async (update) => {
+    const { connection, lastDisconnect, qr } = update;
+    
+    if (qr) {
+      lastQR = qr;
+      console.log('========== ESCANEA ESTE QR ==========');
+      qrcode.generate(qr, { small: true });
+      console.log('=====================================');
+    }
 
-        // #VOZ
-        if (low.startsWith('#voz')) {
-            let r = frasesSabrina[Math.floor(Math.random()*frasesSabrina.length)];
-            exec(`npx edge-tts --voice es-MX-DalilaNeural ${emocionesTTS[r.e]} --text "${r.t}" --write-media ./sabrina.mp3`, async () => {
-                await sock.sendMessage(from, { audio: fs.readFileSync('./sabrina.mp3'), mimetype: 'audio/mpeg', ptt: true }, { quoted: msg });
-            });
-        }
-        // #TODOS
-        if (low.startsWith('#todos')) {
-            if (!isAdmin) return;
-            let txt = texto.slice(6) || "Atención mis cods 💋";
-            let mentions = parts.map(p => p.id);
-            await sock.sendMessage(from, { text: `📢 *SABRINA LLAMA A TODOS*\n\n${txt}\n\n` + mentions.map(m=>`@${m.split('@')[0]}`).join(' '), mentions });
-        }
-        // #ABRIR #CERRAR
-        if (low === '#cerrar' && isAdmin) { await sock.groupSettingUpdate(from, 'announcement'); await sock.sendMessage(from, {text: '🌙 Cerr
+    if (connection === 'close') {
+      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      console.log('Conexion cerrada, reconectando...', shouldReconnect);
+      if (shouldReconnect) startBot();
+    } else if (connection === 'open') {
+      console.log('>>> SABRINA CONECTADA CON EXITO <<<');
+      lastQR = null;
+    }
+  });
+
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    const msg = messages[0];
+    if (!msg.message || msg.key.fromMe) return;
+    const from = msg.key.remoteJid;
+    let texto = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+    let low = texto.toLowerCase();
+
+    if (low === '#menu' || low === '#help') {
+      await sock.sendMessage(from, { text: '💋 *SABRINA PRO ACTIVA* 💋\n\n#voz\n#todos\n#abrir\n#cerrar\n#menu\n\nBot conectado correctamente!' });
+    }
+    if (low.startsWith('#voz')) {
+      await sock.sendMessage(from, { text: 'Hola amorcito 💋 ya estoy activa, soy Sabrina' });
+    }
+  });
+}
+startBot
