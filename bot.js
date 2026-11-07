@@ -1,21 +1,10 @@
+const fs = require('fs')
 const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys')
 const P = require('pino')
 const express = require('express')
-const QRCode = require('qrcode')
-const fs = require('fs')
 const app = express()
-let qr = ''
-let status = 'Iniciando...'
-
-app.get('/', async (req,res)=>{
-  if(status==='CONECTADA') return res.send('<h1>SABRINA CONECTADA! Ya puedes usar #IMG</h1>')
-  if(qr){
-    const img = await QRCode.toDataURL(qr)
-    res.send(`<html><body style="text-align:center"><h1>ESCANEA QR 92426533</h1><img src="${img}" style="width:350px"><h2>Expira en 20 seg, dale F5</h2></body></html>`)
-  } else {
-    res.send(`<h1>${status} - Espera 10 seg y dale F5</h1>`)
-  }
-})
+let conectado = false
+app.get('/', (req,res)=> res.send(conectado ? '✅ SABRINA CONECTADA - #IMG OK' : 'Iniciando...'))
 app.listen(3000)
 
 async function start(){
@@ -23,10 +12,38 @@ async function start(){
   const {state, saveCreds} = await useMultiFileAuthState('auth')
   const sock = makeWASocket({version, auth: state, logger: P({level:'silent'}), browser:['Chrome','Windows','10']})
   sock.ev.on('creds.update', saveCreds)
-  sock.ev.on('connection.update', async(u)=>{
-    if(u.qr){ qr=u.qr; status='QR LISTO'; console.log('QR LISTO') }
-    if(u.connection==='open'){ qr=''; status='CONECTADA'; console.log('CONECTADA') }
-    if(u.connection==='close'){ status='Reconectando...'; console.log(u.lastDisconnect?.error); setTimeout(start,2000) }
+  sock.ev.on('connection.update', u=>{
+    if(u.connection==='open'){ conectado=true; console.log('CONECTADA!')}
+    if(u.connection==='close'){ conectado=false; setTimeout(start,3000) }
+  })
+  sock.ev.on('messages.upsert', async m=>{
+    const msg = m.messages[0]
+    if(!msg.message || msg.key.fromMe) return
+    const from = msg.key.remoteJid
+    const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || '').toLowerCase().trim()
+
+    // --- COMANDOS ---
+
+    if(text.includes('#img') || text.includes('#precios') || text.includes('#puntos')){
+      if(fs.existsSync('./IMG.jpg')){
+        await sock.sendMessage(from, { image: fs.readFileSync('./IMG.jpg'), caption: '💰 *PRECIOS COD POINTS* 💰\n\n⚡ *RAPIDA:* 1 a 12 HORAS\n🕒 *NORMAL:* 1 a 3 DIAS\n\nEscribe *#menu* para ver todo' })
+      }
+    }
+    else if(text === '#menu' || text === '#ayuda' || text === '#help'){
+      await sock.sendMessage(from, { text: `*🤖 SABRINA BOT - COMANDOS* 🤖\n\n📸 *#img* - Ver imagen de precios\n💰 *#precios* - Ver precios\n⚡ *#rapida* - Info recarga rapida\n🕒 *#normal* - Info recarga normal\n💳 *#pago* - Metodos de pago\n📞 *#contacto* - Hablar con admin\n\nEscribe cualquier comando en el grupo o privado` })
+    }
+    else if(text.includes('#rapida')){
+      await sock.sendMessage(from, { text: `⚡ *RECARGA RAPIDA* ⚡\n\n✅ 1 a 12 HORAS MAXIMO\n✅ 100% segura\n✅ Precios en #img` })
+    }
+    else if(text.includes('#normal')){
+      await sock.sendMessage(from, { text: `🕒 *RECARGA NORMAL* 🕒\n\n✅ 1 a 3 DIAS\n✅ Mas barata\n✅ Precios en #img` })
+    }
+    else if(text.includes('#pago')){
+      await sock.sendMessage(from, { text: `💳 *METODOS DE PAGO* 💳\n\nPon aqui tu info:\n- Banco: ...\n- Tigo Money: ...\n- etc` })
+    }
+    else if(text.includes('#contacto') || text.includes('#admin')){
+      await sock.sendMessage(from, { text: `📞 *CONTACTO ADMIN* 📞\n\nEscribe al 92426533` })
+    }
   })
 }
 start()
