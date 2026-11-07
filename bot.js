@@ -46,7 +46,7 @@ async function start(){
     // #PRECIOS
     if(t==='#precios' || t==='#lista' || t==='#cp'){
       try{
-        await sock.sendMessage(jid,{ image: fs.readFileSync('./precios.jpg'), caption: '🔥 *TOMATE STORE - PRECIOS* 🔥\nVia normal 1-3 dias / Rapida 1-12h\n#menu para ver comandos' })
+        await sock.sendMessage(jid,{ image: fs.readFileSync('./IMG-20261103-WA0341.jpg'), caption: '🔥 *TOMATE STORE - PRECIOS* 🔥\nVia normal 1-3 dias / Rapida 1-12h\n#menu para ver comandos' })
       }catch{ await sock.sendMessage(jid,{ text: 'Sube precios.jpg a GitHub' }) }
       return
     }
