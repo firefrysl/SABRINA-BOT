@@ -1,53 +1,45 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const P = require('pino');
 const express = require('express');
-const qrcode = require('qrcode-terminal');
+const QRCode = require('qrcode');
 
-// Servidor para Render
 const app = express();
 const PORT = process.env.PORT || 10000;
-let lastQR = null;
+let qrImage = null;
+let isConnected = false;
 
-app.get('/', (req, res) => {
-  if (lastQR) {
-    res.send(`<h1>Sabrina PRO - Escanea el QR en los logs de Render</h1><p>QR: ${lastQR}</p><p>Ve a Logs -> Live tail para ver el QR grande</p>`);
+app.get('/', async (req, res) => {
+  if (isConnected) {
+    return res.send('<h1>✅ Sabrina CONECTADA 💋</h1><p>Ya puedes usar #menu en WhatsApp</p>');
+  }
+  if (qrImage) {
+    res.send(`<h1>Escanea este QR amor</h1><img src="${qrImage}" width="300"><p>Actualiza la pagina si expira - WhatsApp > Dispositivos vinculados > Vincular</p>`);
   } else {
-    res.send('Sabrina PRO activa - esperando QR... revisa los logs');
+    res.send('<h1>Sabrina iniciando... espera 20 segundos y actualiza</h1>');
   }
 });
-app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
+
+app.listen(PORT, () => console.log(`Web en puerto ${PORT}`));
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_sabrina');
   const { version } = await fetchLatestBaileysVersion();
-  
-  const sock = makeWASocket({
-    version,
-    auth: state,
-    logger: P({ level: 'silent' }),
-    printQRInTerminal: true,
-    browser: ["Sabrina PRO", "Chrome", "1.0"]
-  });
-
+  const sock = makeWASocket({ version, auth: state, logger: P({ level: 'silent' }), printQRInTerminal: true, browser: ["Sabrina", "Chrome", "1.0"] });
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('connection.update', async (update) => {
-    const { connection, lastDisconnect, qr } = update;
-    
+  sock.ev.on('connection.update', async (u) => {
+    const { connection, qr } = u;
     if (qr) {
-      lastQR = qr;
-      console.log('========== ESCANEA ESTE QR ==========');
-      qrcode.generate(qr, { small: true });
-      console.log('=====================================');
+      qrImage = await QRCode.toDataURL(qr);
+      console.log('QR generado, ve a tu web .onrender.com');
     }
-
-    if (connection === 'close') {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log('Conexion cerrada, reconectando...', shouldReconnect);
-      if (shouldReconnect) startBot();
-    } else if (connection === 'open') {
-      console.log('>>> SABRINA CONECTADA CON EXITO <<<');
-      lastQR = null;
+    if (connection === 'open') {
+      isConnected = true;
+      qrImage = null;
+      console.log('>>> CONECTADA <<<');
+    }
+    if (connection === 'close' && u.lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
+      startBot();
     }
   });
 
@@ -55,15 +47,10 @@ async function startBot() {
     const msg = messages[0];
     if (!msg.message || msg.key.fromMe) return;
     const from = msg.key.remoteJid;
-    let texto = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
-    let low = texto.toLowerCase();
-
-    if (low === '#menu' || low === '#help') {
-      await sock.sendMessage(from, { text: '💋 *SABRINA PRO ACTIVA* 💋\n\n#voz\n#todos\n#abrir\n#cerrar\n#menu\n\nBot conectado correctamente!' });
-    }
-    if (low.startsWith('#voz')) {
-      await sock.sendMessage(from, { text: 'Hola amorcito 💋 ya estoy activa, soy Sabrina' });
+    let t = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+    if (t.toLowerCase() === '#menu') {
+      await sock.sendMessage(from, { text: '💋 Sabrina PRO CONECTADA\n\n#voz\n#todos\n#abrir\n#cerrar' });
     }
   });
 }
-startBot
+startBot();
