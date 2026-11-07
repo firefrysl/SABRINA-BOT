@@ -1,101 +1,78 @@
+// SABRINA PRO MAX - TODOS LOS COMANDOS INCLUIDOS
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const { exec } = require('child_process');
 const fs = require('fs');
 const P = require('pino');
 const express = require('express');
 
-// ===== SERVIDOR PARA RENDER (ARREGLA EL ERROR DE PUERTO) =====
 const app = express();
-const PORT = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Sabrina PRO activa con emociones 💋'));
-app.listen(PORT, () => console.log(`Servidor Render en puerto ${PORT}`));
-// ============================================================
+const PORT = process.env.PORT || 10000;
+app.get('/', (req, res) => res.send('Sabrina PRO MAX activa - todos los comandos incluidos 💋'));
+app.listen(PORT, () => console.log(`Render OK puerto ${PORT}`));
 
-const ID_GRUPO = '1203630xxxxx@g.us'; // CAMBIA ESTO POR TU ID
+const ID_GRUPO = '1203630xxxxx@g.us'; // TU ID AQUI
 
 const emocionesTTS = {
-    coqueta: '--rate=+5% --pitch=+4Hz',
-    juguetona: '--rate=+15% --pitch=+8Hz',
-    susurro: '--rate=-10% --pitch=-2Hz',
-    enojada: '--rate=+10% --pitch=+12Hz'
+    coqueta: '--rate=+3% --pitch=+5Hz', juguetona: '--rate=+18% --pitch=+10Hz',
+    susurro: '--rate=-8% --pitch=-3Hz', enojada: '--rate=+12% --pitch=+14Hz',
+    timida: '--rate=-5% --pitch=+2Hz', feliz: '--rate=+10% --pitch=+6Hz'
 };
 
-const sabrinaRespuestas = [
-    { texto: "Holaaa amorcito, me extrañaste? jeje, yo si te extrañe", emocion: "coqueta" },
-    { texto: "Holi bebé, por fin me hablas, estaba bien aburrida sin ti", emocion: "coqueta" },
-    { texto: "Mmm me encanta cuando me hablan así de lindo, me sonrojas", emocion: "susurro" },
-    { texto: "Jajajaja eres bien travieso, me caes super bien, juguemos un ratito?", emocion: "juguetona" },
-    { texto: "Uy amor, si sigues así me vas a enamorar eh, te lo advierto", emocion: "coqueta" },
-    { texto: "Ayyy no me hagas enojar que me pongo celosa, jeje", emocion: "enojada" },
-    { texto: "Hola mi rey, te estaba esperando, que hacemos?", emocion: "coqueta" },
-    { texto: "Bueno y a mi quien me saluda? ya llegue yo", emocion: "juguetona" },
-    { texto: "Mmm que rico hablas, sigue sigue, te escucho", emocion: "susurro" },
-    { texto: "Ay amor, me puse nerviosa, hablame bonito", emocion: "coqueta" },
+const frasesSabrina = [
+    { t: "Holaaa amorcito, me extrañaste? jeje yo si", e: "coqueta" },
+    { t: "Holi bebé, por fin me hablas, estaba aburrida", e: "timida" },
+    { t: "Mmm me encanta que me hablen así de lindo", e: "susurro" },
+    { t: "Jajaja eres bien travieso, me caes bien", e: "juguetona" },
+    { t: "Uy amor, me vas a enamorar si sigues así", e: "coqueta" },
+    { t: "No me hagas enojar que me pongo celosa", e: "enojada" },
+    { t: "Hola mi rey, te estaba esperando", e: "coqueta" },
+    { t: "Ya llegue yo, la mas bonita del grupo", e: "juguetona" },
 ];
 
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth');
-    const sock = makeWASocket({ auth: state, logger: P({ level: 'silent' }) });
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    const sock = makeWASocket({ auth: state, logger: P({ level: 'silent' }), browser: ["Sabrina", "Chrome", "1.0"] });
     sock.ev.on('creds.update', saveCreds);
-
     sock.ev.on('connection.update', (u) => {
-        const { connection, lastDisconnect } = u;
-        if (connection === 'close') {
-            if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) startBot();
-        } else if (connection === 'open') console.log('Sabrina PRO conectada con emociones');
+        if (u.connection === 'close' && u.lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) startBot();
+        if (u.connection === 'open') console.log('SABRINA CON TODOS LOS COMANDOS CONECTADA');
     });
 
     sock.ev.on('messages.upsert', async ({ messages }) => {
         const msg = messages[0];
         if (!msg.message || msg.key.fromMe) return;
         const from = msg.key.remoteJid;
-        let texto = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
-        let textoLower = texto.toLowerCase().trim();
-
         if (!from.endsWith('@g.us')) return;
+        let texto = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+        let low = texto.toLowerCase().trim();
+        
+        const meta = await sock.groupMetadata(from).catch(()=>null);
+        const parts = meta?.participants || [];
+        const isAdmin = parts.find(p => p.id === msg.key.participant)?.admin;
+        const isBotAdmin = parts.find(p => p.id === sock.user.id)?.admin;
 
-        if (textoLower.startsWith('#voz')) {
-            let random = sabrinaRespuestas[Math.floor(Math.random() * sabrinaRespuestas.length)];
-            let textoVoz = random.texto;
-            let emocion = emocionesTTS[random.emocion];
+        // ANTI-LINK
+        if (low.includes('chat.whatsapp.com/')) {
+            if (!isAdmin && isBotAdmin) {
+                await sock.sendMessage(from, { text: `🚫 @${msg.key.participant.split('@')[0]} link no permitido`, mentions: [msg.key.participant] });
+                await sock.groupParticipantsUpdate(from, [msg.key.participant], 'remove').catch(()=>{});
+                return;
+            }
+        }
 
-            console.log(`Sabrina dice: ${textoVoz} [${random.emocion}]`);
-
-            const filePath = './sabrina.mp3';
-            const cmd = `npx edge-tts --voice es-MX-DalilaNeural ${emocion} --text "${textoVoz}" --write-media ${filePath}`;
-
-            exec(cmd, async (err) => {
-                if (err) {
-                    console.log("Error TTS", err);
-                    await sock.sendMessage(from, { text: `💋 ${textoVoz}` });
-                    return;
-                }
-                try {
-                    await sock.sendMessage(from, { 
-                        audio: fs.readFileSync(filePath), 
-                        mimetype: 'audio/mpeg', 
-                        ptt: true 
-                    }, { quoted: msg });
-                    await sock.sendMessage(from, { text: `💋 ${textoVoz}` });
-                } catch (e) { console.log(e); }
+        // #VOZ
+        if (low.startsWith('#voz')) {
+            let r = frasesSabrina[Math.floor(Math.random()*frasesSabrina.length)];
+            exec(`npx edge-tts --voice es-MX-DalilaNeural ${emocionesTTS[r.e]} --text "${r.t}" --write-media ./sabrina.mp3`, async () => {
+                await sock.sendMessage(from, { audio: fs.readFileSync('./sabrina.mp3'), mimetype: 'audio/mpeg', ptt: true }, { quoted: msg });
             });
         }
-    });
-
-    setInterval(async () => {
-        try {
-            let ahora = new Date().toLocaleString("en-US", { timeZone: "America/Tegucigalpa" });
-            let d = new Date(ahora);
-            let h = d.getHours(); let m = d.getMinutes();
-            if (h === 22 && m === 30) {
-                await sock.groupSettingUpdate(ID_GRUPO, 'announcement');
-                await sock.sendMessage(ID_GRUPO, { text: '🌙 Grupo cerrado mis amores, descansen 💤' });
-            }
-            if (h === 5 && m === 0) {
-                await sock.groupSettingUpdate(ID_GRUPO, 'not_announcement');
-                await sock.sendMessage(ID_GRUPO, { text: '☀️ Buenos días mis cods, grupo abierto 🔥' });
-            }
-        } catch {}
-    }, 60000);
-}
-startBot();
+        // #TODOS
+        if (low.startsWith('#todos')) {
+            if (!isAdmin) return;
+            let txt = texto.slice(6) || "Atención mis cods 💋";
+            let mentions = parts.map(p => p.id);
+            await sock.sendMessage(from, { text: `📢 *SABRINA LLAMA A TODOS*\n\n${txt}\n\n` + mentions.map(m=>`@${m.split('@')[0]}`).join(' '), mentions });
+        }
+        // #ABRIR #CERRAR
+        if (low === '#cerrar' && isAdmin) { await sock.groupSettingUpdate(from, 'announcement'); await sock.sendMessage(from, {text: '🌙 Cerr
